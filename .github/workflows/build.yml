@@ -231,7 +231,7 @@ jobs:
           printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H6","location":".github/workflows/build.yml:mac-bundle-icons","message":"icon source count","data":{"iconCount":"%s"},"timestamp":%s}\n' "$icon_count" "$(date +%s%3N)" >> ../../../debug-eccf0a.log
           # endregion
           for file in Aseprite.app/Contents/Resources/data/icons/ase*.png; do
-              num=$(basename "$file" | grep -E -o "\d+")
+              num=$(basename "$file" | grep -E -o "[0-9]+" || true)
               if [[ -n "$num" ]] && (( num % 16 == 0 )); then
                   cp "$file" "Aseprite.iconset/icon_${num}x${num}.png"
               fi
