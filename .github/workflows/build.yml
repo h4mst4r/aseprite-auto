@@ -85,13 +85,21 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y \
             libpixman-1-dev libfreetype6-dev libharfbuzz-dev zlib1g-dev \
-            libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
+            libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev \
+            libxrandr-dev
 
       - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS-latest'
+        if: runner.os == 'macOS'
         run: brew install ninja p7zip jpeg-turbo wget
 
       - uses: actions/checkout@v4
+
+      - name: Debug workflow matrix context
+        shell: bash
+        run: |
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H1","location":".github/workflows/build.yml:checkout","message":"Runner context","data":{"runnerOs":"%s","matrixOs":"%s"},"timestamp":%s}\n' "${{ runner.os }}" "${{ matrix.os }}" "$(date +%s%3N)" >> debug-eccf0a.log
+          # endregion
 
       - name: Install Aseprite
         shell: bash
@@ -104,17 +112,32 @@ jobs:
         working-directory: aseprite
         shell: bash
         run: |
+          # region agent log
+          selected_skia="unknown"
+          # endregion
           if [[ "${{ runner.os }}" == "Windows" ]]; then
+            # region agent log
+            selected_skia="Skia-Windows-Release-x64.zip"
+            # endregion
             choco install wget -y --no-progress
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Windows-Release-x64.zip
             unzip Skia-Windows-Release-x64.zip -d skia
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            # region agent log
+            selected_skia="Skia-macOS-Release-arm64.zip"
+            # endregion
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-macOS-Release-arm64.zip
             unzip Skia-macOS-Release-arm64.zip -d skia
           else
+            # region agent log
+            selected_skia="Skia-Linux-Release-x64.zip"
+            # endregion
             wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Linux-Release-x64.zip
             unzip Skia-Linux-Release-x64.zip -d skia
           fi
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H2","location":".github/workflows/build.yml:install-skia","message":"Skia archive selected","data":{"runnerOs":"%s","archive":"%s"},"timestamp":%s}\n' "${{ runner.os }}" "$selected_skia" "$(date +%s%3N)" >> ../debug-eccf0a.log
+          # endregion
 
       - uses: aseprite/get-ninja@main
 
@@ -134,6 +157,9 @@ jobs:
           else
             skia_arch=x64
           fi
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H3","location":".github/workflows/build.yml:cmake-config","message":"CMake Skia parameters","data":{"runnerOs":"%s","skiaArch":"%s","skiaDir":"%s","skiaLibDir":"%s"},"timestamp":%s}\n' "${{ runner.os }}" "$skia_arch" "$(realpath skia)" "$(realpath skia/out/Release-$skia_arch)" "$(date +%s%3N)" >> ../debug-eccf0a.log
+          # endregion
 
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
@@ -148,7 +174,11 @@ jobs:
       - name: Compiling
         shell: bash
         working-directory: aseprite
-        run: ninja -C build
+        run: |
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H4","location":".github/workflows/build.yml:compile-start","message":"Starting compile","data":{"runnerOs":"%s"},"timestamp":%s}\n' "${{ runner.os }}" "$(date +%s%3N)" >> ../debug-eccf0a.log
+          # endregion
+          ninja -C build
         
       - name: Clean Up Build folder
         shell: bash
@@ -182,6 +212,9 @@ jobs:
         shell: bash
         working-directory: aseprite/build/bin
         run: |
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H5","location":".github/workflows/build.yml:mac-bundle-precheck","message":"mac bundle precheck","data":{"hasAseprite":"%s","hasData":"%s","hasIni":"%s"},"timestamp":%s}\n' "$(test -f aseprite && echo yes || echo no)" "$(test -d data && echo yes || echo no)" "$(test -f aseprite.ini && echo yes || echo no)" "$(date +%s%3N)" >> ../../../debug-eccf0a.log
+          # endregion
           mkdir -p Aseprite.app/Contents/MacOS
           mkdir -p Aseprite.app/Contents/Resources
       
@@ -193,6 +226,10 @@ jobs:
 
           # Create app icns
           mkdir -p Aseprite.iconset
+          # region agent log
+          icon_count=$(ls Aseprite.app/Contents/Resources/data/icons/ase*.png 2>/dev/null | wc -l | tr -d ' ')
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H6","location":".github/workflows/build.yml:mac-bundle-icons","message":"icon source count","data":{"iconCount":"%s"},"timestamp":%s}\n' "$icon_count" "$(date +%s%3N)" >> ../../../debug-eccf0a.log
+          # endregion
           for file in Aseprite.app/Contents/Resources/data/icons/ase*.png; do
               num=$(basename "$file" | grep -E -o "\d+")
               if (( num % 16 == 0 )); then
@@ -200,6 +237,9 @@ jobs:
               fi
           done
           iconutil -c icns Aseprite.iconset
+          # region agent log
+          printf '{"sessionId":"eccf0a","runId":"pre-fix","hypothesisId":"H6","location":".github/workflows/build.yml:mac-bundle-iconutil","message":"iconutil completed","data":{"hasIcns":"%s"},"timestamp":%s}\n' "$(test -f Aseprite.icns && echo yes || echo no)" "$(date +%s%3N)" >> ../../../debug-eccf0a.log
+          # endregion
           rm -R Aseprite.iconset
           mv Aseprite.icns Aseprite.app/Contents/Resources/
       
