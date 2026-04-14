@@ -232,7 +232,7 @@ jobs:
           # endregion
           for file in Aseprite.app/Contents/Resources/data/icons/ase*.png; do
               num=$(basename "$file" | grep -E -o "\d+")
-              if (( num % 16 == 0 )); then
+              if [[ -n "$num" ]] && (( num % 16 == 0 )); then
                   cp "$file" "Aseprite.iconset/icon_${num}x${num}.png"
               fi
           done
